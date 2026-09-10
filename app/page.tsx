@@ -41,7 +41,7 @@ const formatTime = (seconds: number) => `${String(Math.floor(seconds / 60)).padS
 export default function Home() {
   const [size, setSize] = useState(3);
   const [image, setImage] = useState(starterImage);
-  const [pieces, setPieces] = useState<number[]>(() => shuffle(9));
+  const [pieces, setPieces] = useState<number[]>(() => Array.from({ length: 9 }, (_, index) => 8 - index));
   const [moves, setMoves] = useState(0);
   const [seconds, setSeconds] = useState(0);
   const [playing, setPlaying] = useState(true);
