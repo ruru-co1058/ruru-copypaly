@@ -1,151 +1,22 @@
 'use client';
-
-import { ChangeEvent, DragEvent, useEffect, useMemo, useRef, useState } from 'react';
-import { ImagePlus, RefreshCw, Sparkles, Swords, Timer, Trophy, Volume2 } from 'lucide-react';
-
-const starterImage = `${process.env.NEXT_PUBLIC_BASE_PATH ?? ''}/default-puzzle.png`;
-const levels = [
-  { size: 3, label: '輕鬆', note: '3 × 3' },
-  { size: 4, label: '挑戰', note: '4 × 4' },
-  { size: 5, label: '高手', note: '5 × 5' },
-];
-
-const ordered = (size: number) => Array.from({ length: size * size }, (_, i) => i);
-const reverseOrder = (size: number) => ordered(size).reverse();
-const shuffled = (size: number) => {
-  const result = ordered(size);
-  for (let i = result.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [result[i], result[j]] = [result[j], result[i]];
-  }
-  if (result.every((value, index) => value === index)) [result[0], result[1]] = [result[1], result[0]];
-  return result;
-};
-const formatTime = (tenths: number) => `${String(Math.floor(tenths / 600)).padStart(2, '0')}:${String(Math.floor((tenths % 600) / 10)).padStart(2, '0')}.${tenths % 10}`;
-
-export default function Home() {
-  const [size, setSize] = useState(3);
-  const [image, setImage] = useState(starterImage);
-  const [boards, setBoards] = useState<number[][]>(() => [reverseOrder(3), reverseOrder(3)]);
-  const [selected, setSelected] = useState<(number | null)[]>([null, null]);
-  const [moves, setMoves] = useState([0, 0]);
-  const [times, setTimes] = useState([0, 0]);
-  const [finished, setFinished] = useState([false, false]);
-  const [countdown, setCountdown] = useState<number | 'GO' | null>(null);
-  const [running, setRunning] = useState(false);
-  const [round, setRound] = useState(0);
-  const audioRef = useRef<AudioContext | null>(null);
-  const dragRef = useRef<(number | null)[]>([null, null]);
-
-  useEffect(() => {
-    if (!running) return;
-    const id = window.setInterval(() => setTimes((current) => current.map((value, player) => finished[player] ? value : value + 1)), 100);
-    return () => window.clearInterval(id);
-  }, [running, finished]);
-
-  const audio = () => {
-    const AudioContextClass = window.AudioContext || (window as typeof window & { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-    audioRef.current ??= new AudioContextClass();
-    void audioRef.current.resume();
-    return audioRef.current;
-  };
-  const tone = (frequency: number, delay = 0, duration = .16, type: OscillatorType = 'sine', volume = .12) => {
-    const ctx = audio(); const osc = ctx.createOscillator(); const gain = ctx.createGain(); const start = ctx.currentTime + delay;
-    osc.type = type; osc.frequency.setValueAtTime(frequency, start); gain.gain.setValueAtTime(volume, start); gain.gain.exponentialRampToValueAtTime(.001, start + duration);
-    osc.connect(gain).connect(ctx.destination); osc.start(start); osc.stop(start + duration);
-  };
-  const cheer = () => [523, 659, 784, 1047].forEach((note, index) => tone(note, index * .09, .3, 'triangle', .1));
-  const finale = () => {
-    for (let i = 0; i < 12; i++) tone(170 + Math.random() * 120, i * .055, .07, 'square', .035);
-    [523, 659, 784, 659, 784, 1047].forEach((note, index) => tone(note, .2 + index * .16, .28, 'triangle', .075));
-  };
-
-  const prepareRound = (nextSize = size) => {
-    const layout = reverseOrder(nextSize);
-    setBoards([[...layout], [...layout]]); setSelected([null, null]); setMoves([0, 0]); setTimes([0, 0]); setFinished([false, false]); setRunning(false); setCountdown(null);
-  };
-  const startRound = () => {
-    audio();
-    const layout = shuffled(size);
-    setBoards([[...layout], [...layout]]); setSelected([null, null]); setMoves([0, 0]); setTimes([0, 0]); setFinished([false, false]); setRunning(false); setRound((value) => value + 1);
-    [3, 2, 1].forEach((number, index) => window.setTimeout(() => { setCountdown(number); tone(440 + index * 110, 0, .18, 'sine', .13); }, index * 800));
-    window.setTimeout(() => { setCountdown('GO'); tone(880, 0, .35, 'triangle', .16); setRunning(true); }, 2400);
-    window.setTimeout(() => setCountdown(null), 3000);
-  };
-  const completePlayer = (player: number) => {
-    setFinished((current) => {
-      const next = [...current]; next[player] = true;
-      if (next.every(Boolean)) { setRunning(false); window.setTimeout(finale, 120); } else cheer();
-      return next;
-    });
-  };
-  const swap = (player: number, from: number, to: number) => {
-    if (!running || finished[player] || from === to) return;
-    setBoards((current) => {
-      const next = current.map((board) => [...board]);
-      [next[player][from], next[player][to]] = [next[player][to], next[player][from]];
-      if (next[player].every((piece, index) => piece === index)) window.setTimeout(() => completePlayer(player), 0);
-      return next;
-    });
-    setMoves((current) => current.map((value, index) => index === player ? value + 1 : value));
-    setSelected((current) => current.map((value, index) => index === player ? null : value));
-  };
-  const selectPiece = (player: number, index: number) => {
-    if (!running || finished[player]) return;
-    const current = selected[player];
-    if (current === null) setSelected((values) => values.map((value, i) => i === player ? index : value));
-    else swap(player, current, index);
-  };
-  const handleDrop = (event: DragEvent<HTMLButtonElement>, player: number, index: number) => {
-    event.preventDefault(); const from = dragRef.current[player]; if (from !== null) swap(player, from, index); dragRef.current[player] = null;
-  };
-  const upload = (event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0]; if (!file || !file.type.startsWith('image/')) return;
-    const reader = new FileReader(); reader.onload = () => { setImage(String(reader.result)); prepareRound(size); }; reader.readAsDataURL(file); event.target.value = '';
-  };
-
-  const leader = finished[0] !== finished[1] ? (finished[0] ? 0 : 1) : null;
-  const progress = useMemo(() => boards.map((board) => Math.round(board.filter((piece, index) => piece === index).length / board.length * 100)), [boards]);
-
-  return (
-    <main className="pk-shell">
-      <header className="pk-topbar">
-        <div className="pk-logo"><Swords size={25} /></div>
-        <div><p className="eyebrow">雙人公平挑戰</p><h1>拼圖 PK 賽！</h1></div>
-        <label className="upload-button"><ImagePlus size={20} /><span>選擇圖片</span><input type="file" accept="image/*" onChange={upload} /></label>
-      </header>
-
-      <section className="control-deck">
-        <div className="level-picker" role="radiogroup" aria-label="選擇難度">
-          {levels.map((level) => <button key={level.size} type="button" role="radio" aria-checked={size === level.size} disabled={running || countdown !== null} className={size === level.size ? 'active' : ''} onClick={() => { setSize(level.size); prepareRound(level.size); }}><strong>{level.label}</strong><span>{level.note}</span></button>)}
-        </div>
-        <div className="fair-note"><Sparkles size={18} /><span>兩邊的拼圖片順序完全相同</span></div>
-        <button className="start-button" type="button" disabled={running || countdown !== null} onClick={startRound}>{round ? <RefreshCw size={21} /> : <Volume2 size={21} />}{round ? '再比一場' : '開始 PK'}</button>
-      </section>
-
-      <section className="arena">
-        {[0, 1].map((player) => (
-          <article className={`player-zone player-${player + 1} ${leader === player ? 'winner' : ''}`} key={player}>
-            <div className="player-heading">
-              <div><span className="player-badge">玩家 {player + 1}</span><strong>{finished[player] ? '完成！' : running ? '加油！' : '準備好了'}</strong></div>
-              <div className="player-stats"><span><Timer size={17} />{formatTime(times[player])}</span><span>{moves[player]} 步</span><span>{progress[player]}%</span></div>
-            </div>
-            <div className={`pk-frame ${finished[player] ? 'complete' : ''}`}>
-              <div className="pk-board" style={{ gridTemplateColumns: `repeat(${size}, 1fr)` }}>
-                {boards[player].map((piece, index) => {
-                  const row = Math.floor(piece / size); const column = piece % size;
-                  return <button key={`${piece}-${index}`} type="button" disabled={!running || finished[player]} draggable={running && !finished[player]} aria-label={`玩家 ${player + 1} 的第 ${index + 1} 塊拼圖`} className={`pk-piece ${selected[player] === index ? 'selected' : ''}`} onClick={() => selectPiece(player, index)} onDragStart={() => { dragRef.current[player] = index; }} onDragOver={(event) => event.preventDefault()} onDrop={(event) => handleDrop(event, player, index)} style={{ backgroundImage: `url("${image}")`, backgroundSize: `${size * 100}% ${size * 100}%`, backgroundPosition: `${column / (size - 1) * 100}% ${row / (size - 1) * 100}%` }} />;
-                })}
-              </div>
-              {finished[player] && <div className="finish-stamp"><Trophy size={32} /><strong>{leader === player ? '率先完成！' : '挑戰完成！'}</strong><span>{formatTime(times[player])}</span></div>}
-            </div>
-          </article>
-        ))}
-      </section>
-
-      {!running && countdown === null && round === 0 && <p className="start-hint">選好圖片與難度，兩位玩家準備好後按下「開始 PK」</p>}
-      {countdown !== null && <div className="countdown" role="status" aria-live="assertive"><span>{countdown === 'GO' ? '開始！' : countdown}</span></div>}
-      {finished.every(Boolean) && <div className="all-finished" role="status"><Sparkles size={28} /><strong>兩位都完成了！</strong><span>為彼此拍拍手！</span></div>}
-    </main>
-  );
+import {ChangeEvent,useEffect,useMemo,useState} from 'react';
+import {Check,ImagePlus,Pencil,Play,Plus,RotateCcw,Settings,Sparkles,Trash2,Users,X} from 'lucide-react';
+import {Dialog,DialogContent,DialogDescription,DialogHeader,DialogTitle,DialogTrigger} from '@/components/ui/dialog';
+type Person={id:string;name:string;photo:string}; type Choice={value:string;correct:boolean};
+const KEY='name-match-people-v1';
+const similar:Record<string,string[]>={王:['玉','主'],玉:['王','主'],明:['朋','眀'],婷:['庭','亭'],晴:['睛','精'],睛:['晴','精'],宇:['字','守'],安:['按','案'],怡:['宜','依'],佳:['加','嘉'],嘉:['佳','加'],瑄:['宣','萱'],萱:['宣','瑄'],翔:['祥','詳'],祥:['翔','詳'],宏:['弘','洪'],弘:['宏','洪'],祐:['佑','右'],佑:['祐','右'],妤:['瑜','愉'],豪:['濠','毫'],毅:['義','議'],芯:['心','欣'],欣:['芯','心'],潔:['捷','婕']};
+const extras='王玉主日目木禾大太天子字宇心芯欣佳加嘉晴睛精庭婷亭祥翔詳佑祐右';
+function shuffle<T>(a:T[]){const r=[...a];for(let i=r.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[r[i],r[j]]=[r[j],r[i]]}return r}
+function choices(answer:string,people:Person[]):Choice[]{const pool=[...(similar[answer]??[]),...people.flatMap(p=>Array.from(p.name)),...Array.from(extras)].filter((c,i,a)=>c!==answer&&a.indexOf(c)===i);return shuffle([{value:answer,correct:true},...shuffle(pool).slice(0,2).map(value=>({value,correct:false}))])}
+async function resize(file:File){const source=await createImageBitmap(file),scale=Math.min(1,900/Math.max(source.width,source.height)),canvas=document.createElement('canvas');canvas.width=Math.round(source.width*scale);canvas.height=Math.round(source.height*scale);canvas.getContext('2d')?.drawImage(source,0,0,canvas.width,canvas.height);source.close();return canvas.toDataURL('image/jpeg',.82)}
+export default function Game(){
+ const [people,setPeople]=useState<Person[]>([]),[loaded,setLoaded]=useState(false),[open,setOpen]=useState(false),[name,setName]=useState(''),[photo,setPhoto]=useState(''),[editId,setEditId]=useState<string|null>(null),[current,setCurrent]=useState<Person|null>(null),[index,setIndex]=useState(0),[opts,setOpts]=useState<Choice[]>([]),[picked,setPicked]=useState<string|null>(null),[score,setScore]=useState(0),[round,setRound]=useState(0),[status,setStatus]=useState<'idle'|'playing'|'finished'>('idle'),[message,setMessage]=useState('');
+ useEffect(()=>{try{setPeople(JSON.parse(localStorage.getItem(KEY)??'[]'))}catch{setPeople([])}setLoaded(true)},[]);useEffect(()=>{if(loaded)localStorage.setItem(KEY,JSON.stringify(people))},[people,loaded]);
+ const reset=()=>{setName('');setPhoto('');setEditId(null)},upload=async(e:ChangeEvent<HTMLInputElement>)=>{const f=e.target.files?.[0];if(f?.type.startsWith('image/'))setPhoto(await resize(f));e.target.value=''},save=()=>{if(!name.trim()||!photo)return;const p={id:editId??crypto.randomUUID(),name:name.trim(),photo};setPeople(a=>editId?a.map(x=>x.id===editId?p:x):[...a,p]);reset()},edit=(p:Person)=>{setEditId(p.id);setName(p.name);setPhoto(p.photo)},remove=(id:string)=>{setPeople(a=>a.filter(p=>p.id!==id));if(editId===id)reset()};
+ const start=()=>{if(people.length<3){setOpen(true);return}let p=shuffle(people)[0];if(p.id===current?.id&&people.length>1)p=shuffle(people.filter(x=>x.id!==current.id))[0];setCurrent(p);setIndex(0);setOpts(choices(Array.from(p.name)[0],people));setPicked(null);setMessage('');setStatus('playing');setRound(n=>n+1)};
+ const choose=(o:Choice)=>{if(picked||!current)return;setPicked(o.value);if(!o.correct){setMessage('再看仔細一點，找找看正確的字！');return}setScore(n=>n+1);setMessage('答對了！');setTimeout(()=>{const n=index+1;if(n>=Array.from(current.name).length){setIndex(n);setStatus('finished');setMessage('你認出他了！')}else{setIndex(n);setOpts(choices(Array.from(current.name)[n],people));setPicked(null);setMessage('')}},650)};
+ const answered=current?Array.from(current.name).slice(0,index).join(''):'',total=useMemo(()=>current?Array.from(current.name).length:0,[current]),progress=current?Math.round(index/total*100):0,empty=loaded&&people.length===0;
+ return <main className="game-shell"><header className="topbar"><div className="brand-mark"><Users/></div><div><p className="eyebrow">看照片・認名字</p><h1>認識你真好</h1></div><Dialog open={open} onOpenChange={v=>{setOpen(v);if(!v)reset()}}><DialogTrigger className="manage-button"><Settings/>管理題庫 <span>{people.length}</span></DialogTrigger><DialogContent className="manager-dialog"><DialogHeader><DialogTitle>管理真人照片與姓名</DialogTitle><DialogDescription>照片只儲存在這台裝置的瀏覽器。至少加入 3 人才能開始遊戲。</DialogDescription></DialogHeader><div className="editor"><label className={`photo-input ${photo?'has-photo':''}`}>{photo?<img src={photo} alt="照片預覽"/>:<><ImagePlus/><span>選擇照片</span></>}<input type="file" accept="image/*" onChange={upload}/></label><div className="name-editor"><label htmlFor="person-name">姓名</label><input id="person-name" value={name} maxLength={12} placeholder="例如：王小明" onChange={e=>setName(e.target.value)}/><p>遊戲會依照姓名順序，一次選一個字。</p></div><button className="save-button" disabled={!name.trim()||!photo} onClick={save}>{editId?<Check/>:<Plus/>}{editId?'儲存修改':'加入題庫'}</button>{editId&&<button className="cancel-button" onClick={reset}><X/>取消</button>}</div><div className="roster-head"><strong>目前名單</strong><span>{people.length} 人</span></div><div className="roster">{!people.length&&<div className="roster-empty">還沒有資料，請從上方加入第一位。</div>}{people.map(p=><div className="person-row" key={p.id}><img src={p.photo} alt={`${p.name}的照片`}/><strong>{p.name}</strong><button aria-label={`編輯${p.name}`} onClick={()=>edit(p)}><Pencil/></button><button className="delete" aria-label={`刪除${p.name}`} onClick={()=>remove(p.id)}><Trash2/></button></div>)}</div></DialogContent></Dialog></header>
+ <section className="game-card"><div className="score-strip"><span>第 {round||1} 題</span><span><Sparkles/>答對 {score} 個字</span></div>{status==='idle'&&<div className="welcome-state"><div className="photo-stage empty-photo"><Users/></div><h2>{empty?'先建立你的真人題庫':'準備好認識大家了嗎？'}</h2><p>{empty?'加入照片和姓名後，就能開始玩。':`題庫裡有 ${people.length} 位，按下開始會隨機抽一位。`}</p><button className="primary-button" onClick={empty?()=>setOpen(true):start}>{empty?<Plus/>:<Play/>}{empty?'加入照片與姓名':'開始遊戲'}</button>{!empty&&people.length<3&&<p className="need-more">還要加入 {3-people.length} 人，才有足夠的三選一題目。</p>}</div>}
+ {current&&status!=='idle'&&<div className="play-state"><div className="photo-stage"><img src={current.photo} alt="猜猜這是誰"/></div><div className="prompt-area"><p className="step-label">第 {Math.min(index+1,total)} 個字</p><div className="name-slots">{Array.from(current.name).map((c,i)=><span key={i} className={i<index||status==='finished'?'filled':i===index?'current':''}>{i<index||status==='finished'?c:'?'}</span>)}</div>{status==='playing'&&<><h2>{index===0?'他的名字，第一個字是？':`「${answered}」後面的字是？`}</h2><div className="choice-grid">{opts.map(o=>{const state=picked===o.value?(o.correct?'correct':'wrong'):picked&&o.correct?'reveal':'';return <button key={o.value} className={state} onClick={()=>choose(o)}>{o.value}{state==='correct'&&<Check/>}{state==='wrong'&&<X/>}</button>})}</div><div className={`feedback ${picked?'show':''}`}>{message}{picked&&!opts.find(o=>o.value===picked)?.correct&&<button onClick={()=>{setPicked(null);setMessage('')}}>再試一次</button>}</div></>}{status==='finished'&&<div className="finish-panel"><Sparkles/><h2>{message}</h2><p>他的名字是 <strong>{current.name}</strong></p><button className="primary-button" onClick={start}><RotateCcw/>下一位</button></div>}<div className="progress-track"><span style={{width:`${progress}%`}}/></div></div></div>}</section><p className="privacy-note">小提醒：請在取得本人或家長同意後使用照片；更換瀏覽器或清除瀏覽資料，題庫也會一併清除。</p></main>
 }
