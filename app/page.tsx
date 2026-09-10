@@ -18,8 +18,7 @@ declare global {
   }
 }
 
-const starterImage =
-  "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 900 900'%3E%3Cdefs%3E%3ClinearGradient id='s' x2='1' y2='1'%3E%3Cstop stop-color='%238be2ff'/%3E%3Cstop offset='1' stop-color='%23fff4a8'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='900' height='900' fill='url(%23s)'/%3E%3Ccircle cx='735' cy='165' r='82' fill='%23ffcf4a' stroke='%232c4166' stroke-width='14'/%3E%3Cpath d='M0 620 Q180 460 360 620 T720 585 T950 610 V900 H0Z' fill='%237ed79a' stroke='%232c4166' stroke-width='15'/%3E%3Cpath d='M0 720 Q190 570 390 720 T790 690 T960 720 V900 H0Z' fill='%233bbf83' stroke='%232c4166' stroke-width='15'/%3E%3Cpath d='M290 555 Q450 355 610 555 Z' fill='%23ff8c74' stroke='%232c4166' stroke-width='15'/%3E%3Crect x='350' y='540' width='205' height='205' rx='10' fill='%23fff7e7' stroke='%232c4166' stroke-width='15'/%3E%3Cpath d='M410 745 V630 H495 V745' fill='%23f5ad62' stroke='%232c4166' stroke-width='14'/%3E%3Ccircle cx='160' cy='485' r='65' fill='%23f9a6c7' stroke='%232c4166' stroke-width='14'/%3E%3Crect x='146' y='535' width='28' height='125' rx='14' fill='%23905c43'/%3E%3C/svg%3E";
+const starterImage = '/default-puzzle.png';
 
 const levels = [
   { size: 3, label: '輕鬆', note: '3 × 3' },
