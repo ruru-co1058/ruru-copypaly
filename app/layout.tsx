@@ -2,8 +2,8 @@ import type { Metadata } from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: '認識你真好｜真人照片姓名配對遊戲',
-  description: '看真人照片，逐字選出正確姓名的三選一配對遊戲。',
+  title: '圖片配對小高手｜自訂圖片翻牌遊戲',
+  description: '自行匯入多張圖片，翻牌找出相同的兩張；配對正確會留在原位，關閉網頁後圖片自動刪除。',
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
