@@ -1,0 +1,10 @@
+.two-row-scroll {
+  width: 100%;
+  overflow-x: auto;
+  padding: 6px 7px 12px;
+}
+
+.two-row-scroll .card-grid {
+  width: 100%;
+  grid-template-rows: repeat(2, auto);
+}
