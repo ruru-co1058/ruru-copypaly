@@ -1,1 +1,2 @@
 .player-pane:nth-child(2) .control-card{display:none}.player-pane:nth-child(2) .workspace{grid-template-columns:1fr}.player-pane:nth-child(2) .game-card{margin:0 12px}
+.dual-mode .player-pane:nth-child(2) .empty-state button{display:none}.dual-mode .player-pane:nth-child(2) .empty-state::after{content:"照片由玩家 1 統一準備";display:block;margin-top:10px;font-weight:900;color:#a6583c}
